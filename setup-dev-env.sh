@@ -287,7 +287,7 @@ install_cli_tools() {
 
     # Additional tools from current script
     local additional_tools=(
-        bd
+        beads
     )
 
     # Combine all tools
@@ -716,6 +716,13 @@ main() {
     echo "  - jenv, pyenv, and zoxide initialization"
     echo ""
     log_info "See ~/.post-install-setup.txt for detailed instructions"
+
+    if [[ "$OS" == "macos" ]]; then
+        echo ""
+        log_warning "Action required: Set your iTerm2 font to a Nerd Font for tmux powerline symbols to render correctly."
+        echo "  iTerm2 → Preferences → Profiles → Text → Font → select a Nerd Font (e.g. JetBrainsMono Nerd Font)"
+        echo "  Download Nerd Fonts at: https://www.nerdfonts.com/font-downloads"
+    fi
 }
 
 # Run main function
