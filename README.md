@@ -33,6 +33,7 @@ This script automates the setup of a complete development environment, including
 - ✅ Languages: go, golang-migrate, node, pyenv, jenv, openjdk@21, maven, ruff
 - ✅ Git tools: gh, lazygit, git-delta
 - ✅ Database: Microsoft SQL Server ODBC drivers and tools
+- ✅ Plugin Managers: TPM (Tmux Plugin Manager)
 
 ### Applications (macOS)
 - ✅ Terminal: iTerm2
@@ -164,14 +165,29 @@ eval "$(pyenv virtualenv-init -)"
 | `~/.post-install-setup.txt` | Post-installation configuration notes |
 | `~/dotfiles/` | Your dotfiles repository |
 | `~/fzf-git.sh/` | fzf git integration |
+| `~/.tmux/plugins/tpm/` | Tmux Plugin Manager |
 
 ## After Installation
 
 1. **Restart your terminal** or run: `exec zsh`
-2. **Review backups**: Check `~/.zshrc.backup.*` files and migrate custom configs to `~/.zshrc.local`
-3. **Review post-install notes**: `cat ~/.post-install-setup.txt`
-4. **Verify tools**: Test that your tools work correctly
-5. **Linux users**: Customize `install_linux_apps()` function for GUI apps
+
+2. **Install Tmux Plugins**:
+   - Start tmux: `tmux`
+   - Press `Ctrl+b` then `Shift+I` (capital I) to install plugins
+   - Wait for plugins to install, then you're good to go!
+
+3. **Install Neovim Plugins**:
+   - Open neovim: `nvim`
+   - Plugins will auto-install on first launch
+   - Or manually run `:Lazy sync` inside nvim
+
+4. **Review backups**: Check `~/.zshrc.backup.*` files and migrate custom configs to `~/.zshrc.local`
+
+5. **Review post-install notes**: `cat ~/.post-install-setup.txt`
+
+6. **Verify tools**: Test that your tools work correctly
+
+7. **Linux users**: Customize `install_linux_apps()` function for GUI apps
 
 ## Customization
 

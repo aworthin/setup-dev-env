@@ -196,6 +196,21 @@ install_fzf_git() {
     fi
 }
 
+install_tpm() {
+    local TPM_DIR="$HOME/.tmux/plugins/tpm"
+
+    if [[ ! -d "$TPM_DIR" ]]; then
+        log_info "Installing TPM (Tmux Plugin Manager)..."
+        git clone https://github.com/tmux-plugins/tpm "$TPM_DIR"
+        log_success "TPM installed to ~/.tmux/plugins/tpm"
+    else
+        log_info "TPM already installed, updating..."
+        cd "$TPM_DIR"
+        git pull
+        log_success "TPM updated"
+    fi
+}
+
 change_default_shell() {
     if [[ "$SHELL" != *"zsh"* ]]; then
         log_info "Changing default shell to zsh..."
@@ -535,6 +550,23 @@ CONFIGURATIONS ALREADY IN YOUR DOTFILES (No action needed):
 ✅ fzf shell integration - configured with eval "$(fzf --zsh)"
 ✅ fzf-git.sh - sourced from ~/fzf-git.sh/fzf-git.sh
 ✅ zoxide - initialized with eval "$(zoxide init zsh)"
+✅ TPM (Tmux Plugin Manager) - installed to ~/.tmux/plugins/tpm
+
+================================================================================
+
+MANUAL STEPS REQUIRED AFTER INSTALLATION:
+
+1. TMUX PLUGIN INSTALLATION
+   After starting tmux for the first time:
+   - Press prefix + I (capital i) to fetch and install plugins
+   - Default prefix is Ctrl+b
+   - This installs all plugins defined in your tmux.conf
+
+2. NEOVIM PLUGIN INSTALLATION
+   After installation, run nvim:
+   - Open neovim: nvim
+   - Plugins will auto-install on first launch (if using lazy.nvim)
+   - Or run :Lazy sync to install/update plugins manually
 
 ================================================================================
 
@@ -620,15 +652,19 @@ main() {
     install_fzf_git
     echo ""
 
-    # 7. Install CLI tools (cross-platform)
+    # 7. Install TPM (Tmux Plugin Manager)
+    install_tpm
+    echo ""
+
+    # 8. Install CLI tools (cross-platform)
     install_cli_tools
     echo ""
 
-    # 8. Install Claude Code (cross-platform)
+    # 9. Install Claude Code (cross-platform)
     install_claude_code
     echo ""
 
-    # 9. Install platform-specific applications
+    # 10. Install platform-specific applications
     if [[ "$OS" == "macos" ]]; then
         install_macos_apps
     elif [[ "$OS" == "linux" ]]; then
@@ -636,23 +672,23 @@ main() {
     fi
     echo ""
 
-    # 10. Handle .zshbackup to .zshlocal migration
+    # 11. Handle .zshbackup to .zshrc.local migration
     handle_zshlocal
     echo ""
 
-    # 11. Clone/update dotfiles
+    # 12. Clone/update dotfiles
     clone_dotfiles
     echo ""
 
-    # 12. Install dotfiles with stow
+    # 13. Install dotfiles with stow
     install_dotfiles
     echo ""
 
-    # 13. Setup post-install configurations
+    # 14. Setup post-install configurations
     setup_post_install_configs
     echo ""
 
-    # 14. Change default shell to zsh (do this last)
+    # 15. Change default shell to zsh (do this last)
     change_default_shell
     echo ""
 
