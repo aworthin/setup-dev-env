@@ -288,6 +288,7 @@ install_cli_tools() {
     # Additional tools from current script
     local additional_tools=(
         beads
+        postgresql
     )
 
     # Combine all tools
