@@ -28,11 +28,11 @@ This script automates the setup of a complete development environment, including
 - ✅ Backs up existing `.zshrc` with timestamps
 
 ### CLI Development Tools
-- ✅ Core: bat, eza, fd, fzf, jq, ripgrep, thefuck, tmux, neovim, zoxide, stow, git
-- ✅ Docker: colima, docker, docker-buildx, docker-compose, lazydocker, kubernetes-cli
-- ✅ Languages: go, golang-migrate, node, pyenv, jenv, openjdk@21, maven, ruff
+- ✅ Core: bat, beads, eza, fd, fzf, jq, ripgrep, thefuck, tmux, neovim, zoxide, stow, git
+- ✅ Docker: colima, docker, docker-buildx, docker-compose, docker-credential-helper, lazydocker, kubernetes-cli
+- ✅ Languages: go, golang-migrate, node, pyenv, pyenv-virtualenv, jenv, openjdk@21, maven, ruff
 - ✅ Git tools: gh, lazygit, git-delta
-- ✅ Database: Microsoft SQL Server ODBC drivers and tools
+- ✅ Database: postgresql, Microsoft SQL Server ODBC drivers and tools
 - ✅ Plugin Managers: TPM (Tmux Plugin Manager)
 
 ### Applications (macOS)
@@ -194,7 +194,7 @@ eval "$(pyenv virtualenv-init -)"
 ### For Your Own Use
 
 1. Fork this repository
-2. Update the dotfiles repository URL in the script (line ~470):
+2. Update the dotfiles repository URL in the script (line ~496):
    ```bash
    local DOTFILES_REPO="https://github.com/yourusername/dotfiles.git"
    ```
