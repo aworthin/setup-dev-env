@@ -139,13 +139,16 @@ backup_zshrc() {
     fi
 }
 
+OMZ_FRESH_INSTALL=false
+
 install_ohmyzsh() {
     if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
         log_info "Installing oh-my-zsh..."
         RUNZSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+        OMZ_FRESH_INSTALL=true
         log_success "oh-my-zsh installed"
     else
-        log_info "oh-my-zsh is already installed"
+        log_info "oh-my-zsh is already installed, skipping zshrc-related steps"
     fi
 }
 
@@ -328,19 +331,17 @@ install_cli_tools() {
 ##############################################################################
 
 install_claude_code() {
-    if command_exists claude; then
-        log_info "Claude Code is already installed"
+    if brew list --cask claude-code &>/dev/null; then
+        log_info "Claude Code already installed, upgrading..."
+        brew upgrade --cask --greedy claude-code || log_info "Claude Code is already up to date"
         return
     fi
 
-    log_info "Installing Claude Code CLI..."
-    log_info "Using native installer (auto-updates in background)..."
-
-    # Use the native installer which works on both macOS and Linux
-    curl -fsSL https://claude.ai/install.sh | bash
+    log_info "Installing Claude Code via Homebrew Cask..."
+    brew install --cask claude-code
 
     log_success "Claude Code installed successfully"
-    log_info "You can run 'claude' in any project directory after restarting your terminal"
+    log_info "You can run 'claude' in any project directory"
 }
 
 ##############################################################################
@@ -517,9 +518,9 @@ install_dotfiles() {
     log_info "Installing dotfiles with stow..."
     cd "$DOTFILES_DIR"
 
-    # Remove existing .zshrc if it's not a symlink (oh-my-zsh created it)
-    # We already backed it up earlier with timestamp, so it's safe to remove
-    if [[ -f "$HOME/.zshrc" && ! -L "$HOME/.zshrc" ]]; then
+    # Remove existing .zshrc if it's not a symlink (oh-my-zsh created it on fresh install)
+    # Only do this on a fresh oh-my-zsh install; we already backed it up earlier
+    if [[ "$OMZ_FRESH_INSTALL" == true && -f "$HOME/.zshrc" && ! -L "$HOME/.zshrc" ]]; then
         log_info "Removing oh-my-zsh generated .zshrc (already backed up with timestamp)"
         rm "$HOME/.zshrc"
     fi
@@ -637,9 +638,11 @@ main() {
     update_homebrew
     echo ""
 
-    # 3. Backup .zshrc BEFORE oh-my-zsh installation
-    backup_zshrc
-    echo ""
+    # 3. Backup .zshrc BEFORE oh-my-zsh installation (only if not yet installed)
+    if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
+        backup_zshrc
+        echo ""
+    fi
 
     # 4. Install oh-my-zsh
     install_ohmyzsh
@@ -673,9 +676,11 @@ main() {
     fi
     echo ""
 
-    # 11. Handle .zshbackup to .zshrc.local migration
-    handle_zshlocal
-    echo ""
+    # 11. Handle .zshbackup to .zshrc.local migration (only on fresh oh-my-zsh install)
+    if [[ "$OMZ_FRESH_INSTALL" == true ]]; then
+        handle_zshlocal
+        echo ""
+    fi
 
     # 12. Clone/update dotfiles
     clone_dotfiles
