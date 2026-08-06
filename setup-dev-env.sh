@@ -667,8 +667,25 @@ clone_dotfiles() {
             log_info "Switching dotfiles remote from SSH to HTTPS..."
             git remote set-url origin "$DOTFILES_REPO"
         fi
-        git pull
-        log_success "Dotfiles updated"
+        # Check for local changes that would block pull
+        if ! git diff --quiet || ! git diff --cached --quiet; then
+            log_warning "Dotfiles have local uncommitted changes."
+            if [ -t 0 ]; then
+                read -rp "Stash changes and pull latest? [y/N] " yn
+                if [[ "$yn" =~ ^[Yy]$ ]]; then
+                    git stash push -m "auto-stash by setup-dev-env $(date '+%Y-%m-%d %H:%M')"
+                    git pull
+                    log_success "Dotfiles updated (your changes are stashed — run 'git stash pop' to restore)"
+                else
+                    log_warning "Skipping dotfiles pull — local changes preserved"
+                fi
+            else
+                log_warning "Running non-interactively — skipping dotfiles pull to preserve local changes"
+            fi
+        else
+            git pull
+            log_success "Dotfiles updated"
+        fi
     fi
 }
 
