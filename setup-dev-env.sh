@@ -414,7 +414,13 @@ install_specify() {
         return
     fi
     log_info "Installing specify (GitHub Spec Kit)..."
-    uv tool install specify
+    local latest_tag
+    latest_tag=$(curl -s "https://api.github.com/repos/github/spec-kit/releases/latest" | grep '"tag_name"' | cut -d'"' -f4)
+    if [ -z "$latest_tag" ]; then
+        log_warning "Could not fetch latest specify version — skipping"
+        return
+    fi
+    uv tool install "specify-cli" --from "git+https://github.com/github/spec-kit.git@${latest_tag}"
     log_success "specify installed"
 }
 
@@ -749,9 +755,6 @@ MANUAL STEPS REQUIRED:
    eval "$(pyenv init -)"
    eval "$(pyenv virtualenv-init -)"
 
-7. WALMART TOOLS (Pass 2 — requires Walmart VPN)
-   See: gecgithub01.walmart.com/aworthi/setup-dev-env-walmart
-
 ================================================================================
 
 FILE LOCATIONS:
@@ -877,7 +880,6 @@ main() {
     log_info "Next steps:"
     echo "  1. Restart your terminal or run: exec zsh"
     echo "  2. Review ~/.post-install-setup.txt for manual configuration steps"
-    echo "  3. Register JDKs with jenv (see post-install notes)"
     echo ""
 
     if [[ "$OS" == "linux" ]]; then
@@ -890,10 +892,6 @@ main() {
         log_warning "Action required: Set iTerm2 font to a Nerd Font for tmux powerline symbols."
         echo "  iTerm2 → Preferences → Profiles → Text → Font → JetBrainsMono Nerd Font"
     fi
-
-    echo ""
-    log_info "For Walmart-specific tools (Pass 2), connect to VPN and run:"
-    echo "  gecgithub01.walmart.com/aworthi/setup-dev-env-walmart"
 }
 
 # Run main function

@@ -2,8 +2,6 @@
 
 Cross-platform development environment installer for macOS and Linux.
 
-> **Two-pass setup for Walmart developers**: this script is Pass 1 (run off VPN).
-> Pass 2 (Walmart-specific tools) is a separate internal script.
 
 ## Quick start
 
