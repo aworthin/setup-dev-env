@@ -380,7 +380,9 @@ install_nvm() {
         return
     fi
     log_info "Installing nvm..."
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+    # PROFILE=/dev/null prevents the installer from appending to .zshrc/.bashrc
+    # Our dotfiles .zshrc already contains the lazy-load NVM block
+    PROFILE=/dev/null curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
     log_success "nvm installed"
 }
 
@@ -390,7 +392,10 @@ install_bun() {
         return
     fi
     log_info "Installing bun..."
-    curl -fsSL https://bun.sh/install | bash
+    # BUN_INSTALL_CACHE_DIR and completions are handled in dotfiles .zshrc
+    # --no-modify-path prevents bun from appending to shell config files
+    curl -fsSL https://bun.sh/install | bash -s -- --no-modify-path 2>/dev/null \
+        || curl -fsSL https://bun.sh/install | bash  # fallback if flag unsupported
     log_success "bun installed"
 }
 
@@ -400,7 +405,9 @@ install_uv() {
         return
     fi
     log_info "Installing uv (Python package manager)..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+    # UV_UNMANAGED_INSTALL prevents uv from modifying shell config files
+    # PATH and env setup is handled in dotfiles .zshrc
+    UV_UNMANAGED_INSTALL="$HOME/.local/bin" curl -LsSf https://astral.sh/uv/install.sh | sh
     # Add to PATH for this session (installer puts it in ~/.local/bin)
     export PATH="$HOME/.local/bin:$PATH"
     log_success "uv installed"
