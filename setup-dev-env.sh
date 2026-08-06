@@ -704,14 +704,25 @@ install_dotfiles() {
     log_info "Installing dotfiles with stow..."
     cd "$DOTFILES_DIR"
 
-    # Remove existing .zshrc if it's not a symlink (oh-my-zsh created it on fresh install)
-    # Only do this on a fresh oh-my-zsh install; we already backed it up earlier
-    if [[ "$OMZ_FRESH_INSTALL" == true && -f "$HOME/.zshrc" && ! -L "$HOME/.zshrc" ]]; then
-        log_info "Removing oh-my-zsh generated .zshrc (already backed up with timestamp)"
-        rm "$HOME/.zshrc"
-    fi
+    # Resolve stow conflicts: back up any regular files that stow would try to replace.
+    # stow fails if the target exists as a plain file (not a symlink it owns).
+    # We find all files stow would manage and back up any that are non-symlink files.
+    local TIMESTAMP
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    for pkg in zsh tmux nvim; do
+        if [[ ! -d "$DOTFILES_DIR/$pkg" ]]; then continue; fi
+        while IFS= read -r -d '' src_file; do
+            # Compute the target path in $HOME
+            local rel="${src_file#$DOTFILES_DIR/$pkg/}"
+            local target="$HOME/$rel"
+            if [[ -f "$target" && ! -L "$target" ]]; then
+                log_warning "Conflict: $target is a plain file — backing up to $target.backup.$TIMESTAMP"
+                mv "$target" "$target.backup.$TIMESTAMP"
+            fi
+        done < <(find "$DOTFILES_DIR/$pkg" -type f -print0)
+    done
 
-    # Run stow for zsh, tmux, and nvim (as per install.sh in dotfiles repo)
+    # Run stow for zsh, tmux, and nvim
     stow zsh tmux nvim
 
     log_success "Dotfiles installed (zsh, tmux, nvim configs symlinked)"
