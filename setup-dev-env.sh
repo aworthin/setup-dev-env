@@ -401,6 +401,8 @@ install_uv() {
     fi
     log_info "Installing uv (Python package manager)..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
+    # Add to PATH for this session (installer puts it in ~/.local/bin)
+    export PATH="$HOME/.local/bin:$PATH"
     log_success "uv installed"
 }
 
@@ -409,6 +411,8 @@ install_specify() {
         log_info "specify already installed"
         return
     fi
+    # Ensure ~/.local/bin is in PATH in case uv was just installed this session
+    export PATH="$HOME/.local/bin:$PATH"
     if ! command_exists uv; then
         log_warning "uv not found — skipping specify install (install uv first)"
         return
