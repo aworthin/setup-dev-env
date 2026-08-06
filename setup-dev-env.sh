@@ -419,6 +419,56 @@ install_specify() {
 }
 
 ##############################################################################
+# jenv — register installed JDKs
+##############################################################################
+
+setup_jenv() {
+    if ! command_exists jenv; then
+        log_warning "jenv not found — skipping JDK registration"
+        return
+    fi
+
+    # Ensure jenv is initialized for this session
+    export PATH="$HOME/.jenv/bin:$PATH"
+    eval "$(jenv init -)" 2>/dev/null
+
+    log_info "Registering JDKs with jenv..."
+
+    local jdks=()
+
+    # Homebrew openjdk installs (macOS)
+    if [[ "$OS" == "macos" ]]; then
+        for ver in 17 21 25 26; do
+            local path="/opt/homebrew/opt/openjdk@${ver}/libexec/openjdk.jdk/Contents/Home"
+            [[ -d "$path" ]] && jdks+=("$path")
+        done
+        # Latest openjdk (unversioned)
+        local latest="/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home"
+        [[ -d "$latest" ]] && jdks+=("$latest")
+        # Cask-installed JDKs (zulu, temurin, etc.)
+        for jdk_home in /Library/Java/JavaVirtualMachines/*/Contents/Home; do
+            [[ -d "$jdk_home" ]] && jdks+=("$jdk_home")
+        done
+    fi
+
+    for jdk_home in "${jdks[@]}"; do
+        if jenv versions 2>/dev/null | grep -qF "$(basename "$(dirname "$(dirname "$jdk_home")")")"; then
+            log_info "Already registered: $jdk_home"
+        else
+            log_info "Registering: $jdk_home"
+            jenv add "$jdk_home" 2>/dev/null || log_warning "Could not register $jdk_home"
+        fi
+    done
+
+    # Enable export plugin so JAVA_HOME is set correctly
+    jenv enable-plugin export 2>/dev/null || true
+
+    log_success "jenv JDK registration complete"
+    log_info "Available versions:"
+    jenv versions 2>/dev/null | head -20
+}
+
+##############################################################################
 # Claude Code Installation (Cross-platform)
 ##############################################################################
 
@@ -786,25 +836,29 @@ main() {
     fi
     echo ""
 
-    # 12. Handle .zshbackup to .zshrc.local migration (only on fresh oh-my-zsh install)
+    # 12. Register JDKs with jenv
+    setup_jenv
+    echo ""
+
+    # 13. Handle .zshbackup to .zshrc.local migration (only on fresh oh-my-zsh install)
     if [[ "$OMZ_FRESH_INSTALL" == true ]]; then
         handle_zshlocal
         echo ""
     fi
 
-    # 13. Clone/update dotfiles
+    # 14. Clone/update dotfiles
     clone_dotfiles
     echo ""
 
-    # 14. Install dotfiles with stow
+    # 15. Install dotfiles with stow
     install_dotfiles
     echo ""
 
-    # 15. Setup post-install configurations
+    # 16. Setup post-install configurations
     setup_post_install_configs
     echo ""
 
-    # 16. Change default shell to zsh (do this last)
+    # 17. Change default shell to zsh (do this last)
     change_default_shell
     echo ""
 
