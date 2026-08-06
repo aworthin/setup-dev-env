@@ -654,6 +654,13 @@ clone_dotfiles() {
     else
         log_info "Dotfiles directory already exists, pulling latest changes..."
         cd "$DOTFILES_DIR"
+        # Ensure remote uses HTTPS (SSH may be blocked on restricted networks)
+        local current_remote
+        current_remote=$(git remote get-url origin 2>/dev/null || echo "")
+        if [[ "$current_remote" == git@* ]]; then
+            log_info "Switching dotfiles remote from SSH to HTTPS..."
+            git remote set-url origin "$DOTFILES_REPO"
+        fi
         git pull
         log_success "Dotfiles updated"
     fi
