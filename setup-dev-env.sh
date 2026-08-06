@@ -245,7 +245,7 @@ install_cli_tools() {
     # Add taps
     brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
 
-    # Core tools from .Brewfile.core
+    # Core tools
     local core_tools=(
         git
         bat
@@ -259,9 +259,16 @@ install_cli_tools() {
         neovim
         zoxide
         stow
+        direnv
+        go-task
+        git-lfs
+        git-filter-repo
+        fx
+        zig
+        air
     )
 
-    # Docker tools from .Brewfile.docker
+    # Docker tools
     local docker_tools=(
         colima
         docker
@@ -272,7 +279,7 @@ install_cli_tools() {
         kubernetes-cli
     )
 
-    # Language tools from .Brewfile.languages
+    # Language tools
     local language_tools=(
         go
         golang-migrate
@@ -281,6 +288,7 @@ install_cli_tools() {
         ruff
         node
         jenv
+        openjdk@17
         openjdk@21
         maven
         gh
@@ -288,10 +296,11 @@ install_cli_tools() {
         git-delta
     )
 
-    # Additional tools from current script
+    # Additional tools
     local additional_tools=(
         beads
-        postgresql
+        dolt
+        postgresql@16
     )
 
     # Combine all tools
@@ -324,6 +333,68 @@ install_cli_tools() {
     done
 
     log_success "CLI tools installation completed"
+}
+
+##############################################################################
+# Curl-based Installers (tools not available via Homebrew)
+##############################################################################
+
+install_rust() {
+    if command_exists rustup; then
+        log_info "Rust already installed, updating..."
+        rustup update stable
+        return
+    fi
+    log_info "Installing Rust via rustup..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
+    # Source for this session
+    # shellcheck source=/dev/null
+    [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
+    log_success "Rust installed (stable toolchain)"
+}
+
+install_nvm() {
+    if [ -d "$HOME/.nvm" ]; then
+        log_info "nvm already installed"
+        return
+    fi
+    log_info "Installing nvm..."
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+    log_success "nvm installed"
+}
+
+install_bun() {
+    if command_exists bun; then
+        log_info "bun already installed"
+        return
+    fi
+    log_info "Installing bun..."
+    curl -fsSL https://bun.sh/install | bash
+    log_success "bun installed"
+}
+
+install_uv() {
+    if command_exists uv; then
+        log_info "uv already installed"
+        return
+    fi
+    log_info "Installing uv (Python package manager)..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    log_success "uv installed"
+}
+
+install_specify() {
+    if command_exists specify; then
+        log_info "specify already installed"
+        return
+    fi
+    if ! command_exists uv; then
+        log_warning "uv not found — skipping specify install (install uv first)"
+        return
+    fi
+    log_info "Installing specify (GitHub Spec Kit)..."
+    uv tool install specify
+    log_success "specify installed"
 }
 
 ##############################################################################
@@ -361,13 +432,20 @@ install_macos_apps() {
 
         # Editors & IDEs
         visual-studio-code
+        zed
         intellij-idea
         datagrip
         goland
         pycharm
 
+        # Database GUIs
+        dbeaver-community
+
         # API Testing
         bruno
+
+        # Cloud
+        gcloud-cli
 
         # Productivity
         caffeine
@@ -375,6 +453,9 @@ install_macos_apps() {
 
         # Fonts
         font-jetbrains-mono-nerd-font
+
+        # Java (Azul Zulu JDK 25)
+        zulu@25
     )
 
     for cask in "${casks[@]}"; do
@@ -548,69 +629,57 @@ setup_post_install_configs() {
 POST-INSTALLATION CONFIGURATION NOTES
 ================================================================================
 
-CONFIGURATIONS ALREADY IN YOUR DOTFILES (No action needed):
-✅ fzf shell integration - configured with eval "$(fzf --zsh)"
-✅ fzf-git.sh - sourced from ~/fzf-git.sh/fzf-git.sh
-✅ zoxide - initialized with eval "$(zoxide init zsh)"
-✅ TPM (Tmux Plugin Manager) - installed to ~/.tmux/plugins/tpm
+ALREADY CONFIGURED IN DOTFILES (no action needed):
+✅ fzf shell integration and fzf-git.sh
+✅ zoxide, bat, eza aliases
+✅ oh-my-zsh with Dracula theme and plugins
+✅ Lazy-loaded NVM, jenv, gcloud, thefuck
+✅ Rust (cargo/env), direnv, bun completions
+✅ TPM (Tmux Plugin Manager)
 
 ================================================================================
 
-MANUAL STEPS REQUIRED AFTER INSTALLATION:
+MANUAL STEPS REQUIRED:
 
-1. TMUX PLUGIN INSTALLATION
-   After starting tmux for the first time:
-   - Press prefix + I (capital i) to fetch and install plugins
-   - Default prefix is Ctrl+b
-   - This installs all plugins defined in your tmux.conf
+1. RESTART YOUR TERMINAL
+   exec zsh   (or open a new terminal window)
 
-2. NEOVIM PLUGIN INSTALLATION
-   After installation, run nvim:
-   - Open neovim: nvim
-   - Plugins will auto-install on first launch (if using lazy.nvim)
-   - Or run :Lazy sync to install/update plugins manually
+2. TMUX PLUGINS
+   Start tmux, then press Ctrl+b + I to install plugins
 
-================================================================================
+3. NEOVIM PLUGINS
+   Run: nvim
+   Plugins auto-install on first launch via lazy.nvim
+   Or run: :Lazy sync
 
-CONFIGURATIONS NEEDED (Add to ~/.zshrc.local):
+4. JAVA — register JDKs with jenv (run once per JDK)
+   jenv add /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+   jenv add /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+   jenv add /Library/Java/JavaVirtualMachines/zulu-25.jdk/Contents/Home
+   jenv global 21
 
-1. DOCKER CONFIGURATION (Optional - if using Docker)
-   Create or update ~/.docker/config.json:
+5. DOCKER
+   Create ~/.docker/config.json if needed:
    {
-     "cliPluginsExtraDirs": [
-       "/opt/homebrew/lib/docker/cli-plugins"
-     ]
+     "cliPluginsExtraDirs": ["/opt/homebrew/lib/docker/cli-plugins"]
    }
-
    To start colima at login: brew services start colima
 
-2. JENV INITIALIZATION (Add to ~/.zshrc.local if using Java)
-   export PATH="$HOME/.jenv/bin:$PATH"
-   eval "$(jenv init -)"
-
-3. PYENV INITIALIZATION (Add to ~/.zshrc.local if using Python)
+6. PYENV (add to ~/.zshrc.local if needed)
    export PYENV_ROOT="$HOME/.pyenv"
    export PATH="$PYENV_ROOT/bin:$PATH"
    eval "$(pyenv init -)"
    eval "$(pyenv virtualenv-init -)"
 
-4. OPENJDK@21 SYSTEM LINK (macOS only - one-time setup)
-   To make this the system Java:
-   sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk \
-     /Library/Java/JavaVirtualMachines/openjdk-21.jdk
-
-5. FONTS (Linux only)
-   JetBrains Mono Nerd Font needs manual installation on Linux
-   Download from: https://github.com/ryanoasis/nerd-fonts/releases
+7. WALMART TOOLS (Pass 2 — requires Walmart VPN)
+   See: gecgithub01.walmart.com/aworthi/setup-dev-env-walmart
 
 ================================================================================
 
-NOTES:
-- Your .zshrc sources ~/.zshrc.local for machine-specific configurations
-- Add jenv, pyenv, or other environment-specific configs to ~/.zshrc.local
-- Docker config is optional and only needed if you use Docker/Colima
-
-This file will be saved at: ~/.post-install-setup.txt
+FILE LOCATIONS:
+- Generic shell config (committed):    ~/.zshrc  →  ~/dotfiles/zsh/.zshrc
+- Walmart shell config (not committed): ~/.zshrc.wmt  (created by Pass 2)
+- Personal overrides (not committed):  ~/.zshrc.local
 
 EOF
 
@@ -623,7 +692,7 @@ EOF
 
 main() {
     log_info "=========================================="
-    log_info "Dev Environment Setup Script"
+    log_info "Dev Environment Setup Script (Pass 1)"
     log_info "=========================================="
     echo ""
 
@@ -664,11 +733,27 @@ main() {
     install_cli_tools
     echo ""
 
-    # 9. Install Claude Code (cross-platform)
+    # 9. Install curl-based tools (Rust, NVM, bun, uv, specify)
+    install_rust
+    echo ""
+
+    install_nvm
+    echo ""
+
+    install_bun
+    echo ""
+
+    install_uv
+    echo ""
+
+    install_specify
+    echo ""
+
+    # 10. Install Claude Code (cross-platform)
     install_claude_code
     echo ""
 
-    # 10. Install platform-specific applications
+    # 11. Install platform-specific applications
     if [[ "$OS" == "macos" ]]; then
         install_macos_apps
     elif [[ "$OS" == "linux" ]]; then
@@ -676,25 +761,25 @@ main() {
     fi
     echo ""
 
-    # 11. Handle .zshbackup to .zshrc.local migration (only on fresh oh-my-zsh install)
+    # 12. Handle .zshbackup to .zshrc.local migration (only on fresh oh-my-zsh install)
     if [[ "$OMZ_FRESH_INSTALL" == true ]]; then
         handle_zshlocal
         echo ""
     fi
 
-    # 12. Clone/update dotfiles
+    # 13. Clone/update dotfiles
     clone_dotfiles
     echo ""
 
-    # 13. Install dotfiles with stow
+    # 14. Install dotfiles with stow
     install_dotfiles
     echo ""
 
-    # 14. Setup post-install configurations
+    # 15. Setup post-install configurations
     setup_post_install_configs
     echo ""
 
-    # 15. Change default shell to zsh (do this last)
+    # 16. Change default shell to zsh (do this last)
     change_default_shell
     echo ""
 
@@ -705,9 +790,8 @@ main() {
     echo ""
     log_info "Next steps:"
     echo "  1. Restart your terminal or run: exec zsh"
-    echo "  2. Review timestamped backups (~/.zshrc.backup.*) and add custom configs to ~/.zshrc.local"
-    echo "  3. Review ~/.post-install-setup.txt for additional configuration notes"
-    echo "  4. Verify all tools are working correctly"
+    echo "  2. Review ~/.post-install-setup.txt for manual configuration steps"
+    echo "  3. Register JDKs with jenv (see post-install notes)"
     echo ""
 
     if [[ "$OS" == "linux" ]]; then
@@ -716,19 +800,14 @@ main() {
         echo ""
     fi
 
-    log_info "Configuration items to check in your dotfiles:"
-    echo "  - fzf shell integration and fzf-git.sh sourcing"
-    echo "  - Docker CLI plugins directory (~/.docker/config.json)"
-    echo "  - jenv, pyenv, and zoxide initialization"
-    echo ""
-    log_info "See ~/.post-install-setup.txt for detailed instructions"
-
     if [[ "$OS" == "macos" ]]; then
-        echo ""
-        log_warning "Action required: Set your iTerm2 font to a Nerd Font for tmux powerline symbols to render correctly."
-        echo "  iTerm2 → Preferences → Profiles → Text → Font → select a Nerd Font (e.g. JetBrainsMono Nerd Font)"
-        echo "  Download Nerd Fonts at: https://www.nerdfonts.com/font-downloads"
+        log_warning "Action required: Set iTerm2 font to a Nerd Font for tmux powerline symbols."
+        echo "  iTerm2 → Preferences → Profiles → Text → Font → JetBrainsMono Nerd Font"
     fi
+
+    echo ""
+    log_info "For Walmart-specific tools (Pass 2), connect to VPN and run:"
+    echo "  gecgithub01.walmart.com/aworthi/setup-dev-env-walmart"
 }
 
 # Run main function
