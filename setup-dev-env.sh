@@ -46,6 +46,27 @@ command_exists() {
 }
 
 ##############################################################################
+# Network Check — verify Homebrew servers are reachable
+##############################################################################
+
+check_network() {
+    log_info "Checking network access..."
+    if ! curl -s --max-time 5 "https://formulae.brew.sh" &>/dev/null; then
+        log_error "Cannot reach Homebrew servers (formulae.brew.sh)."
+        log_error "This is often caused by a corporate VPN or restricted network."
+        log_error "Disconnect from VPN, then re-run this script."
+        if [ -t 0 ]; then
+            read -rp "Continue anyway? [y/N] " yn
+            [[ "$yn" =~ ^[Yy]$ ]] || exit 0
+        else
+            exit 1
+        fi
+    else
+        log_success "Network access OK"
+    fi
+}
+
+##############################################################################
 # OS Detection
 ##############################################################################
 
@@ -694,6 +715,10 @@ main() {
     log_info "=========================================="
     log_info "Dev Environment Setup Script (Pass 1)"
     log_info "=========================================="
+    echo ""
+
+    # 0. Network check
+    check_network
     echo ""
 
     # 1. Detect OS
