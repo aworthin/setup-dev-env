@@ -86,6 +86,61 @@ is_personal_device() {
 }
 
 ##############################################################################
+# Tagged tool installer — entries are "name" or "name:tag" where tag is
+# p (personal-only), c (corp-only), or b/omitted (both — installed always).
+##############################################################################
+
+# tool_tag_matches TAG -> 0 if this tool should install on the current device
+tool_tag_matches() {
+    local tag="$1"
+    case "$tag" in
+        p) is_personal_device ;;
+        c) ! is_personal_device ;;
+        b|"") return 0 ;;
+        *) log_warning "Unknown tool tag '$tag' — treating as 'both'"; return 0 ;;
+    esac
+}
+
+# install_tagged_tools KIND entry...
+# KIND is "formula" or "cask". Each entry is "name" or "name:tag".
+# A leading "+" on name (e.g. "+claude-code:p") marks a self-updating cask
+# that needs `brew upgrade --cask --greedy` to detect new versions.
+install_tagged_tools() {
+    local kind="$1"; shift
+    local brew_flag=""
+    [[ "$kind" == "cask" ]] && brew_flag="--cask"
+
+    local entry name tag greedy
+    for entry in "$@"; do
+        name="${entry%%:*}"
+        if [[ "$entry" == *:* ]]; then tag="${entry##*:}"; else tag=""; fi
+
+        greedy=false
+        if [[ "$name" == +* ]]; then
+            greedy=true
+            name="${name#+}"
+        fi
+
+        if ! tool_tag_matches "$tag"; then
+            log_info "Skipping $name (tag '$tag' doesn't match device type '$DEVICE_TYPE')"
+            continue
+        fi
+
+        if brew list $brew_flag "$name" &>/dev/null; then
+            if [[ "$greedy" == true ]]; then
+                log_info "$name already installed, checking for updates..."
+                brew upgrade $brew_flag --greedy "$name" || log_info "$name is already up to date"
+            else
+                log_info "$name already installed"
+            fi
+        else
+            log_info "Installing $name..."
+            brew install $brew_flag "$name"
+        fi
+    done
+}
+
+##############################################################################
 # Network Check — verify Homebrew servers are reachable
 ##############################################################################
 
@@ -306,86 +361,78 @@ install_cli_tools() {
     # Add taps
     brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
 
+    # Each entry is "name" or "name:tag" — tag p=personal-only, c=corp-only,
+    # b/omitted=both (always installed). See install_tagged_tools.
+
     # Core tools
     local core_tools=(
-        git
-        bat
-        eza
-        fd
-        fzf
-        jq
-        ripgrep
-        thefuck
-        tmux
-        neovim
-        zoxide
-        stow
-        direnv
-        go-task
-        git-lfs
-        git-filter-repo
-        fx
-        zig
-        air
+        git:b
+        bat:b
+        eza:b
+        fd:b
+        fzf:b
+        jq:b
+        ripgrep:b
+        thefuck:b
+        tmux:b
+        neovim:b
+        zoxide:b
+        stow:b
+        direnv:b
+        go-task:b
+        git-lfs:b
+        git-filter-repo:b
+        fx:b
+        zig:b
+        air:b
     )
 
     # Docker tools
     local docker_tools=(
-        colima
-        docker
-        docker-buildx
-        docker-compose
-        docker-credential-helper
-        lazydocker
-        kubernetes-cli
+        colima:b
+        docker:b
+        docker-buildx:b
+        docker-compose:b
+        docker-credential-helper:b
+        lazydocker:b
+        kubernetes-cli:b
     )
 
     # Language tools
     local language_tools=(
-        go
-        golang-migrate
-        pyenv
-        pyenv-virtualenv
-        ruff
-        node
-        jenv
-        openjdk@17
-        openjdk@21
-        maven
-        gh
-        lazygit
-        git-delta
+        go:b
+        golang-migrate:b
+        pyenv:b
+        pyenv-virtualenv:b
+        ruff:b
+        node:b
+        jenv:b
+        openjdk@17:b
+        openjdk@21:b
+        maven:b
+        gh:b
+        lazygit:b
+        git-delta:b
     )
 
     # Additional tools
     local additional_tools=(
-        beads
-        dolt
-        postgresql@16
+        beads:b
+        dolt:b
+        postgresql@16:b
     )
 
-    # Personal-device-only tools (skipped on corp/work devices)
-    local personal_tools=()
-    if is_personal_device; then
-        personal_tools+=(doctl glab)
-    else
-        log_info "Corp device — skipping doctl, glab"
-    fi
+    # Personal-device-only tools
+    local personal_tools=(
+        doctl:p
+        glab:p
+    )
 
-    # Combine all tools
-    local all_tools=("${core_tools[@]}" "${docker_tools[@]}" "${language_tools[@]}" "${additional_tools[@]}" "${personal_tools[@]}")
+    install_tagged_tools formula \
+        "${core_tools[@]}" "${docker_tools[@]}" "${language_tools[@]}" \
+        "${additional_tools[@]}" "${personal_tools[@]}"
 
-    # Install each tool
-    for tool in "${all_tools[@]}"; do
-        if ! brew list "$tool" &>/dev/null; then
-            log_info "Installing $tool..."
-            brew install "$tool"
-        else
-            log_info "$tool already installed"
-        fi
-    done
-
-    # Microsoft SQL Server tools
+    # Microsoft SQL Server tools (both — not brew-standard, needs EULA env vars)
     local mssql_tools=(
         microsoft/mssql-release/msodbcsql17
         microsoft/mssql-release/msodbcsql18
@@ -545,41 +592,9 @@ setup_jenv() {
 # Claude Code / Claude Desktop Installation (Cross-platform, personal-only)
 ##############################################################################
 
-install_claude_code() {
-    if ! is_personal_device; then
-        log_info "Corp device — skipping Claude Code"
-        return
-    fi
-
-    if brew list --cask claude-code &>/dev/null; then
-        log_info "Claude Code already installed, upgrading..."
-        brew upgrade --cask --greedy claude-code || log_info "Claude Code is already up to date"
-        return
-    fi
-
-    log_info "Installing Claude Code via Homebrew Cask..."
-    brew install --cask claude-code
-
-    log_success "Claude Code installed successfully"
+install_claude_apps() {
+    install_tagged_tools cask "+claude-code:p" "+claude:p"
     log_info "You can run 'claude' in any project directory"
-}
-
-install_claude_desktop() {
-    if ! is_personal_device; then
-        log_info "Corp device — skipping Claude Desktop"
-        return
-    fi
-
-    if brew list --cask claude &>/dev/null; then
-        log_info "Claude Desktop already installed, upgrading..."
-        brew upgrade --cask --greedy claude || log_info "Claude Desktop is already up to date"
-        return
-    fi
-
-    log_info "Installing Claude Desktop via Homebrew Cask..."
-    brew install --cask claude
-
-    log_success "Claude Desktop installed successfully"
 }
 
 ##############################################################################
@@ -595,44 +610,37 @@ install_macos_apps() {
 
     local casks=(
         # Terminal
-        iterm2
+        iterm2:b
 
         # Editors & IDEs
-        visual-studio-code
-        zed
-        intellij-idea
-        datagrip
-        goland
-        pycharm
+        visual-studio-code:b
+        zed:b
+        intellij-idea:b
+        datagrip:b
+        goland:b
+        pycharm:b
 
         # Database GUIs
-        dbeaver-community
+        dbeaver-community:b
 
         # API Testing
-        bruno
+        bruno:b
 
         # Cloud
-        gcloud-cli
+        gcloud-cli:b
 
         # Productivity
-        caffeine
-        raycast
+        caffeine:b
+        raycast:b
 
         # Fonts
-        font-jetbrains-mono-nerd-font
+        font-jetbrains-mono-nerd-font:b
 
         # Java (Azul Zulu JDK 25)
-        zulu@25
+        zulu@25:b
     )
 
-    for cask in "${casks[@]}"; do
-        if ! brew list --cask "$cask" &>/dev/null; then
-            log_info "Installing $cask..."
-            brew install --cask "$cask"
-        else
-            log_info "$cask already installed"
-        fi
-    done
+    install_tagged_tools cask "${casks[@]}"
 
     log_success "macOS applications installation completed"
 }
@@ -958,10 +966,7 @@ main() {
     echo ""
 
     # 10. Install Claude Code and Claude Desktop (cross-platform, personal-only)
-    install_claude_code
-    echo ""
-
-    install_claude_desktop
+    install_claude_apps
     echo ""
 
     # 11. Install platform-specific applications

@@ -113,7 +113,11 @@ Run `zshrc-drift` to triage each new block: move to `.zshrc.wmt`, `.zshrc.local`
    ```bash
    local DOTFILES_REPO="https://github.com/yourusername/dotfiles.git"
    ```
-3. Edit package lists and casks to match your preferences
+3. Edit package lists and casks to match your preferences. Each entry is tagged
+   `name:b` (both device types, the default), `name:p` (personal-only), or
+   `name:c` (corp-only) — installed/skipped via `install_tagged_tools` based on
+   the saved device type. Prefix a cask name with `+` (e.g. `+claude-code:p`)
+   to also run `brew upgrade --cask --greedy` on it when already installed.
 
 ---
 
