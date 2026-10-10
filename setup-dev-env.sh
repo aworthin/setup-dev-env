@@ -46,6 +46,46 @@ command_exists() {
 }
 
 ##############################################################################
+# Device Type — personal vs. corp/work, persisted across runs
+##############################################################################
+
+SETUP_CONFIG_FILE="$HOME/.setup-dev-env.conf"
+DEVICE_TYPE=""
+
+# Load any previously saved answer
+if [[ -f "$SETUP_CONFIG_FILE" ]]; then
+    # shellcheck source=/dev/null
+    source "$SETUP_CONFIG_FILE"
+fi
+
+detect_device_type() {
+    if [[ "$DEVICE_TYPE" == "personal" || "$DEVICE_TYPE" == "corp" ]]; then
+        log_info "Device type already set: $DEVICE_TYPE (from $SETUP_CONFIG_FILE)"
+        return
+    fi
+
+    if [ -t 0 ]; then
+        echo ""
+        read -rp "Is this a personal or corp/work device? [p/c] " answer
+        if [[ "$answer" =~ ^[Pp]$ ]]; then
+            DEVICE_TYPE="personal"
+        else
+            DEVICE_TYPE="corp"
+        fi
+    else
+        log_warning "Running non-interactively with no saved device type — defaulting to corp (skips personal-only tools)"
+        DEVICE_TYPE="corp"
+    fi
+
+    echo "DEVICE_TYPE=$DEVICE_TYPE" >> "$SETUP_CONFIG_FILE"
+    log_success "Device type set to '$DEVICE_TYPE' (saved to $SETUP_CONFIG_FILE)"
+}
+
+is_personal_device() {
+    [[ "$DEVICE_TYPE" == "personal" ]]
+}
+
+##############################################################################
 # Network Check — verify Homebrew servers are reachable
 ##############################################################################
 
@@ -324,8 +364,16 @@ install_cli_tools() {
         postgresql@16
     )
 
+    # Personal-device-only tools (skipped on corp/work devices)
+    local personal_tools=()
+    if is_personal_device; then
+        personal_tools+=(doctl glab)
+    else
+        log_info "Corp device — skipping doctl, glab"
+    fi
+
     # Combine all tools
-    local all_tools=("${core_tools[@]}" "${docker_tools[@]}" "${language_tools[@]}" "${additional_tools[@]}")
+    local all_tools=("${core_tools[@]}" "${docker_tools[@]}" "${language_tools[@]}" "${additional_tools[@]}" "${personal_tools[@]}")
 
     # Install each tool
     for tool in "${all_tools[@]}"; do
@@ -387,7 +435,11 @@ install_nvm() {
 }
 
 install_bun() {
-    if command_exists bun; then
+    # The script runs in a fresh non-interactive bash (via curl | bash), so
+    # ~/.bun/bin is never on PATH unless we check the known install path too —
+    # relying on command_exists alone causes a reinstall on every re-run.
+    export PATH="$HOME/.bun/bin:$PATH"
+    if command_exists bun || [[ -x "$HOME/.bun/bin/bun" ]]; then
         log_info "bun already installed"
         return
     fi
@@ -396,11 +448,15 @@ install_bun() {
     # --no-modify-path prevents bun from appending to shell config files
     curl -fsSL https://bun.sh/install | bash -s -- --no-modify-path 2>/dev/null \
         || curl -fsSL https://bun.sh/install | bash  # fallback if flag unsupported
+    export PATH="$HOME/.bun/bin:$PATH"
     log_success "bun installed"
 }
 
 install_uv() {
-    if command_exists uv; then
+    # Same non-interactive-shell PATH issue as install_bun — check the known
+    # install path too, not just command_exists.
+    export PATH="$HOME/.local/bin:$PATH"
+    if command_exists uv || [[ -x "$HOME/.local/bin/uv" ]]; then
         log_info "uv already installed"
         return
     fi
@@ -486,10 +542,15 @@ setup_jenv() {
 }
 
 ##############################################################################
-# Claude Code Installation (Cross-platform)
+# Claude Code / Claude Desktop Installation (Cross-platform, personal-only)
 ##############################################################################
 
 install_claude_code() {
+    if ! is_personal_device; then
+        log_info "Corp device — skipping Claude Code"
+        return
+    fi
+
     if brew list --cask claude-code &>/dev/null; then
         log_info "Claude Code already installed, upgrading..."
         brew upgrade --cask --greedy claude-code || log_info "Claude Code is already up to date"
@@ -501,6 +562,24 @@ install_claude_code() {
 
     log_success "Claude Code installed successfully"
     log_info "You can run 'claude' in any project directory"
+}
+
+install_claude_desktop() {
+    if ! is_personal_device; then
+        log_info "Corp device — skipping Claude Desktop"
+        return
+    fi
+
+    if brew list --cask claude &>/dev/null; then
+        log_info "Claude Desktop already installed, upgrading..."
+        brew upgrade --cask --greedy claude || log_info "Claude Desktop is already up to date"
+        return
+    fi
+
+    log_info "Installing Claude Desktop via Homebrew Cask..."
+    brew install --cask claude
+
+    log_success "Claude Desktop installed successfully"
 }
 
 ##############################################################################
@@ -820,6 +899,11 @@ main() {
     check_network
     echo ""
 
+    # 0.5 Determine device type (personal vs. corp) — gates Claude Code,
+    # Claude Desktop, doctl, and glab. Asked once, then persisted.
+    detect_device_type
+    echo ""
+
     # 1. Detect OS
     detect_os
     echo ""
@@ -873,8 +957,11 @@ main() {
     install_specify
     echo ""
 
-    # 10. Install Claude Code (cross-platform)
+    # 10. Install Claude Code and Claude Desktop (cross-platform, personal-only)
     install_claude_code
+    echo ""
+
+    install_claude_desktop
     echo ""
 
     # 11. Install platform-specific applications

@@ -13,6 +13,8 @@ Cross-platform development environment installer for macOS and Linux.
 
 Idempotent — safe to re-run anytime to update packages and pull latest dotfiles.
 
+On first run, the script asks whether the machine is a **personal** or **corp/work** device and saves the answer to `~/.setup-dev-env.conf`. This gates personal-only installs (Claude Code, Claude Desktop, `doctl`, `glab`) — corp devices skip them. Delete the `DEVICE_TYPE` line from that file (or the whole file) to be asked again.
+
 ---
 
 ## What it installs
@@ -41,8 +43,11 @@ Idempotent — safe to re-run anytime to update packages and pull latest dotfile
 ### macOS apps (casks)
 `iterm2` `visual-studio-code` `zed` `intellij-idea` `datagrip` `goland` `pycharm` `dbeaver-community` `bruno` `gcloud-cli` `caffeine` `raycast` `font-jetbrains-mono-nerd-font` `zulu@25`
 
-### AI
-`claude-code`
+### AI (personal devices only)
+`claude-code` `claude` (Claude Desktop)
+
+### Cloud/VCS CLIs (personal devices only)
+`doctl` (DigitalOcean) `glab` (GitLab)
 
 ### Dotfiles
 Clones `github.com/aworthin/dotfiles` to `~/dotfiles` and runs `stow zsh tmux nvim`.
